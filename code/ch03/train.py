@@ -136,14 +136,15 @@ def train(args) -> None:
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
 
-        # ---- 观察点：每 100 步打印 + 生成一段 ----
-        if step % 100 == 0 or step == args.epochs - 1:
+        # ---- 观察点：每 100 步打印 + 生成一段（resume 后按 end_step 收尾）----
+        if step % 100 == 0 or step == end_step - 1:
             elapsed = time.time() - t0
             speed = (step - start_step + 1) / elapsed if elapsed > 0 else 0
             print(f"step {step:5d} | loss {loss.item():.4f} | ppl {perplexity:7.1f} | "
                   f"{speed:.1f} 步/秒 | {elapsed:.0f}s", end="")
-            if loss.item() < best_loss:
-                best_loss = loss.item()
+            if loss.item() < best_loss or step == end_step - 1:
+                # 创新低或训练结束都保存：resume 续训即使 loss 不创新低，step 也会前移
+                best_loss = min(best_loss, loss.item())
                 ckpt_path.parent.mkdir(parents=True, exist_ok=True)   # 验收 P0-1：先建目录
                 torch.save({"model": model.state_dict(), "optimizer": optimizer.state_dict(),
                             "step": step, "loss": loss.item(), "cfg": cfg}, ckpt_path)
