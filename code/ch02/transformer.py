@@ -40,7 +40,7 @@ class CausalSelfAttention(nn.Module):
         # 因果掩码：上三角为 False（未来位置），登记为 buffer 随模型移动
         self.register_buffer("mask", torch.tril(torch.ones(1, 1, 1024, 1024)))
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, cache: dict | None = None) -> torch.Tensor:
         B, T, C = x.shape                       # B=batch, T=序列长, C=d_model
         q, k, v = self.qkv(x).split(self.d_model, dim=2)   # 一个 Linear 拆成 Q/K/V
 
@@ -49,10 +49,20 @@ class CausalSelfAttention(nn.Module):
         k = k.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
 
+        # —— 第 4 章新增：KV Cache（增量推理）——
+        # 生成第 t 个 token 时，前 t-1 个 token 的 K/V 和上次完全一样，
+        # 不用重算，直接拼上新的即可。cache=None 时行为和原来完全一致。
+        if cache is not None:
+            if "k" in cache:                    # 已有历史：拼接（第一次 cache 为空直接存）
+                k = torch.cat([cache["k"], k], dim=2)
+                v = torch.cat([cache["v"], v], dim=2)
+            cache["k"], cache["v"] = k, v
+
         # 缩放点积注意力：q·kᵀ / √head_dim  ← 为什么要除以 √d：softmax 饱和
+        T_full = k.size(2)                      # 历史 + 当前的 key 总数
         att = q @ k.transpose(-2, -1) * (1.0 / math.sqrt(self.head_dim))
-        # 因果掩码：把未来位置(上三角)设成 -inf，softmax 后权重为 0
-        att = att.masked_fill(self.mask[:, :, :T, :T] == 0, float("-inf"))
+        # 因果掩码：query 绝对位置从 T_full-T 开始，取 mask 对应行（完整前向时 T_full==T 退化为 :T）
+        att = att.masked_fill(self.mask[:, :, T_full - T:T_full, :T_full] == 0, float("-inf"))
         att = F.softmax(att, dim=-1)            # 每行权重归一化（和为 1）
 
         y = att @ v                             # 加权求和：注意力真正「带走的」信息
@@ -88,8 +98,8 @@ class Block(nn.Module):
         self.ln2 = nn.LayerNorm(d_model)
         self.ffn = FeedForward(d_model)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x + self.attn(self.ln1(x))          # 残差：注意力开完会，结果加回原路
+    def forward(self, x: torch.Tensor, cache: dict | None = None) -> torch.Tensor:
+        x = x + self.attn(self.ln1(x), cache)   # 残差：注意力开完会，结果加回原路
         x = x + self.ffn(self.ln2(x))           # 残差：FFN 消化完，再加回原路
         return x
 
@@ -122,28 +132,71 @@ class MiniTransformer(nn.Module):
         pe[:, 1::2] = torch.cos(angles)                             # 奇数维 cos
         self.register_buffer("pos_encoding", pe.unsqueeze(0))       # (1, max_len, d)
 
-    def forward(self, idx: torch.Tensor) -> torch.Tensor:
-        """idx: (B, T) token ids -> logits: (B, T, vocab_size)"""
+    def forward(self, idx: torch.Tensor, cache: dict | None = None,
+                start_pos: int = 0) -> torch.Tensor:
+        """idx: (B, T) token ids -> logits: (B, T, vocab_size)
+        cache: 第 4 章 KV Cache——每层一个 {'k':…,'v':…}，增量推理时传入
+        start_pos: 当前输入在序列窗口内的起始位置（增量推理时=历史长度，见第 4 章 4.2）"""
         B, T = idx.shape
         assert T <= self.max_len, f"序列超长：{T} > {self.max_len}"
         x = self.token_embedding(idx)                               # (B, T, d)
-        x = x + self.pos_encoding[:, :T, :]                         # 加位置指纹
-        x = self.blocks(x)
+        # 位置编码按绝对位置取：增量推理时新 token 的位置是「历史长度 + i」，不是 0！
+        x = x + self.pos_encoding[:, start_pos : start_pos + T, :]
+        for i, blk in enumerate(self.blocks):
+            x = blk(x, cache.setdefault(i, {}) if cache is not None else None)
         x = self.ln_f(x)
         return self.lm_head(x)                                      # (B, T, vocab)
 
     # ------------------------------------------------------------------
     # 2.4/2.9 推理：逐个 token 采样（预测 -> 拼接 -> 再预测）
+    # 第 4 章升级：KV Cache（use_cache）+ top-k / top-p 采样
     # ------------------------------------------------------------------
     @torch.no_grad()
     def generate(self, idx: torch.Tensor, max_new_tokens: int = 100,
-                 temperature: float = 1.0) -> torch.Tensor:
-        """给定提示 (B, T)，逐 token 生成 max_new_tokens 个，返回完整序列"""
+                 temperature: float = 1.0, top_k: int | None = None,
+                 top_p: float | None = None, use_cache: bool = True) -> torch.Tensor:
+        """给定提示 (B, T)，逐 token 生成，返回完整序列。
+
+        采样管线：temperature 缩放 -> top-k 过滤 -> top-p 过滤 -> 概率采样。
+        KV Cache：第一步对整段 prompt 前向（顺带填 cache），之后每步只前向最后 1 个 token。
+        """
         self.eval()
-        for _ in range(max_new_tokens):
-            idx_cond = idx[:, -self.max_len:]                       # 只看最近 max_len
-            logits = self(idx_cond)                                 # (B, T, vocab)
+        cache: dict = {}
+        for i in range(max_new_tokens):
+            if not use_cache:
+                idx_cond = idx[:, -self.max_len:]       # 滑动窗口完整前向
+                cache = {}
+                start_pos = 0
+            elif idx.size(1) > self.max_len:
+                # 超长回退：KV Cache 的「固定起点窗口」语义失效（教学版），
+                # 清空 cache 退化为完整前向，保证输出永远正确
+                idx_cond = idx[:, -self.max_len:]
+                cache = {}
+                start_pos = 0
+            elif i == 0:
+                idx_cond = idx[:, -self.max_len:]       # 第一步：整段 prompt（顺带填 cache）
+                start_pos = 0
+            else:
+                # 增量步：只前向最后 1 个 token，位置 = 历史 K/V 长度（KV Cache 关键）
+                start_pos = cache[0]["k"].size(2)
+                idx_cond = idx[:, -1:]
+            logits = self(idx_cond, cache if use_cache else None, start_pos)
             logits = logits[:, -1, :] / temperature                 # 只看最后位置 + 温度
+
+            # top-k：只保留概率最大的 k 个候选，其余 -inf
+            if top_k is not None:
+                v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
+                logits[logits < v[:, [-1]]] = float("-inf")
+
+            # top-p（nucleus）：按概率降序累计，裁掉累计超过 p 的尾部
+            if top_p is not None:
+                sorted_logits, sorted_idx = torch.sort(logits, descending=True)
+                probs_sorted = F.softmax(sorted_logits, dim=-1)
+                cumprobs = probs_sorted.cumsum(dim=-1)
+                remove = cumprobs - probs_sorted > top_p           # 保留累计 <= p
+                sorted_logits[remove] = float("-inf")
+                logits = torch.zeros_like(logits).scatter_(1, sorted_idx, sorted_logits)
+
             probs = F.softmax(logits, dim=-1)                       # 概率分布
             next_id = torch.multinomial(probs, num_samples=1)       # 按概率采样
             idx = torch.cat([idx, next_id], dim=1)                  # 拼到序列尾巴

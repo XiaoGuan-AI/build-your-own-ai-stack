@@ -27,7 +27,7 @@
 | 1 | Tokenizer | A real BPE tokenizer from scratch (like GPT-2's) | ✅ |
 | 2 | Transformer | Multi-head attention, QKV, residual blocks, a forward pass you can trace | ✅ |
 | 3 | Pretraining | Train a 64M-param LLM on your own GPU from raw text | ✅ |
-| 4 | Inference Engine | KV cache, sampling strategies, a tiny serving loop | ⏳ |
+| 4 | Inference Engine | KV cache, sampling strategies, a tiny serving loop | ✅ |
 | 5 | RAG | Embedding, retrieval, and grounded generation with your own docs | ⏳ |
 | 6 | Agent Loop | ReAct, tool calling, planning — the brain of an agent | ⏳ |
 | 7 | MCP & Tools | Model Context Protocol, file & terminal tools, safety rails | ⏳ |
@@ -83,7 +83,7 @@ MIT © XiaoGuan-AI
 | 1 | Tokenizer | 一个真实的 BPE 分词器（对标 GPT-2 的 tiktoken） | ✅ |
 | 2 | Transformer | 多头注意力、QKV、残差块，一个能逐行追踪的前向传播 | ✅ |
 | 3 | 预训练 | 在你自己 GPU 上从原始文本训出一个 64M 参数的 LLM | ✅ |
-| 4 | 推理引擎 | KV Cache、采样策略、极简服务循环 | ⏳ |
+| 4 | 推理引擎 | KV Cache、采样策略、极简服务循环 | ✅ |
 | 5 | RAG | 向量化、检索、基于你自己文档的接地生成 | ⏳ |
 | 6 | Agent 循环 | ReAct、工具调用、规划——Agent 的大脑 | ⏳ |
 | 7 | MCP 与工具 | Model Context Protocol、文件/终端工具、安全护栏 | ⏳ |

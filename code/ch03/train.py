@@ -90,7 +90,25 @@ def train(args) -> None:
     # ---- 模型（第 2 章的积木；--demo 用小配置，认真跑用大配置）----
     cfg = dict(vocab_size=tokenizer.vocab_size, d_model=args.d_model,
                n_heads=args.n_heads, n_layers=args.n_layers, max_len=args.block_size)
-    model = MiniTransformer(**cfg)
+
+    # ---- checkpoint 恢复（第 4 章起：配置也存进 checkpoint，resume 无需重传）----
+    ckpt_path = Path(args.ckpt)
+    start_step = 0
+    if args.resume and ckpt_path.exists():
+        state = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+        if "cfg" in state:
+            cfg = state["cfg"]
+            print(f"已从 checkpoint 恢复配置：{cfg}")
+        model = MiniTransformer(**cfg)
+        model.load_state_dict(state["model"])
+        optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
+        optimizer.load_state_dict(state["optimizer"])
+        start_step = state["step"]
+        print(f"已从 checkpoint 恢复（第 {start_step} 步，loss {state['loss']:.4f}）")
+    else:
+        model = MiniTransformer(**cfg)
+        optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model.to(device)
     n_params = sum(p.numel() for p in model.parameters())
@@ -98,18 +116,7 @@ def train(args) -> None:
           f"{n_params:,} 参数 | 设备：{device} | 词表：{tokenizer.vocab_size}")
 
     # ---- 优化器（AdamW：Adam + 权重衰减，大模型标配）----
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
     best_loss = float("inf")
-
-    # ---- checkpoint 恢复 ----
-    ckpt_path = Path(args.ckpt)
-    start_step = 0
-    if args.resume and ckpt_path.exists():
-        state = torch.load(ckpt_path, map_location=device, weights_only=True)
-        model.load_state_dict(state["model"])
-        optimizer.load_state_dict(state["optimizer"])
-        start_step = state["step"]
-        print(f"已从 checkpoint 恢复（第 {start_step} 步，loss {state['loss']:.4f}）")
 
     print(f"开始训练 {args.epochs} 步（block={args.block_size}, batch={args.batch_size}, lr={args.lr}）\n")
     t0 = time.time()
@@ -136,7 +143,7 @@ def train(args) -> None:
             if loss.item() < best_loss:
                 best_loss = loss.item()
                 torch.save({"model": model.state_dict(), "optimizer": optimizer.state_dict(),
-                            "step": step, "loss": loss.item()}, ckpt_path)
+                            "step": step, "loss": loss.item(), "cfg": cfg}, ckpt_path)
                 print("  💾 checkpoint")
             else:
                 print()
