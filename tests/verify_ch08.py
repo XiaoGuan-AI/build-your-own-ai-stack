@@ -39,6 +39,12 @@ def run(ckpt: str | None = None, proj: str | None = None):
                         "--ckpt", ckpt, "--ask", "2+3*4 等于多少"],
                        capture_output=True, text=True, timeout=180)
     check("CLI 单问含答案", r.returncode == 0 and "14" in r.stdout)
+    r2 = subprocess.run([sys.executable, str(pathlib.Path(proj) / "code/ch08/assistant.py"),
+                         "--ckpt", ckpt, "--show-tools"],
+                        capture_output=True, text=True, timeout=120)
+    check("--show-tools 打印路由（P1-1）", r2.returncode == 0 and "路由" in r2.stdout)
+    check("超窗 max_new 不崩（P0-2）", "（模型没能生成有效回答）" in a.answer("你好呀你好呀" * 30)
+          or len(a.answer("你好呀你好呀" * 30)) > 0)
     return passed, failed
 
 

@@ -2,7 +2,7 @@
 
 > 目标：把前 7 章手搓的积木，拼成一个**能对话、能查知识、能算数**的迷你 AI 助手。
 > 这是本项目的「毕业设计」：完成它，你就拥有了从零手搓 AI 应用栈的完整能力。
-> 代码：`code/ch08/assistant.py`（约 230 行，纯复用前 7 章积木）。
+> 代码：`code/ch08/assistant.py`（约 140 行，纯复用前 7 章积木）。
 
 ```bash
 .venv/Scripts/python.exe code/ch03/train.py --demo                    # 先有模型

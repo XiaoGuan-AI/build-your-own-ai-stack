@@ -51,6 +51,8 @@ class AssistantHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/health":
             self._json(200, {"status": "ok", "model": "ch03-demo"})
+        elif self.path == "/generate":
+            self._json(405, {"error": "method not allowed", "hint": "POST /generate"})
         else:
             self._json(404, {"error": "not found", "path": self.path})
 
@@ -69,9 +71,14 @@ class AssistantHandler(BaseHTTPRequestHandler):
             return
 
         t0 = time.perf_counter()
-        text = self.assistant.answer(req["prompt"])
+        try:
+            text = self.assistant.answer(req["prompt"])
+        except ValueError as e:                     # 参数类错误 → 400 友好返回（不 500）
+            self._json(400, {"error": str(e)})
+            return
         dt_ms = (time.perf_counter() - t0) * 1000
         self._json(200, {"text": text, "time_ms": round(dt_ms, 1),
+                         "tokens": len(text),       # P2：补齐 docstring 承诺的 tokens 字段
                          "prompt": req["prompt"][:40]})
 
 
@@ -82,8 +89,15 @@ def main() -> None:
     args = parser.parse_args()
 
     # 模型只加载一次，所有请求共享（生产系统会用模型池/多副本）
+    if not 1024 <= args.port <= 65535:
+        print(f"❌ 端口必须在 1024~65535：{args.port}", file=sys.stderr)
+        sys.exit(1)
     print("加载模型…")
-    assistant = MiniAssistant(args.ckpt)
+    try:
+        assistant = MiniAssistant(args.ckpt)
+    except (FileNotFoundError, RuntimeError, AssertionError) as e:
+        print(f"❌ 模型加载失败：{e}", file=sys.stderr)
+        sys.exit(1)
     AssistantHandler.assistant = assistant
     print(f"✅ 模型就绪。服务启动：http://127.0.0.1:{args.port}")
     print("   GET  /health         健康检查")

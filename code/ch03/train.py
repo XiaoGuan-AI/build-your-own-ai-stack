@@ -122,7 +122,8 @@ def train(args) -> None:
     print(f"开始训练 {args.epochs} 步（block={args.block_size}, batch={args.batch_size}, lr={args.lr}）\n")
     t0 = time.time()
 
-    for step in range(start_step, args.epochs):
+    end_step = start_step + args.epochs   # resume 语义：继续训 args.epochs 步（P1-2 修复）
+    for step in range(start_step, end_step):
         # 前向 + 损失：对整段序列算交叉熵（等价于逐 token 预测的平均难度）
         xb, yb = get_batch(data, args.batch_size, args.block_size, device)
         logits = model(xb)                                  # (B, T, vocab)
@@ -153,7 +154,8 @@ def train(args) -> None:
             if step % 500 == 0 or step == args.epochs - 1:
                 model.eval()
                 with torch.no_grad():
-                    seed = torch.tensor([tokenizer.stoi["床"]], device=device).unsqueeze(0)
+                    first_char = "床" if "床" in tokenizer.stoi else next(iter(tokenizer.stoi))
+                    seed = torch.tensor([tokenizer.stoi[first_char]], device=device).unsqueeze(0)
                     sample = model.generate(seed, max_new_tokens=40, temperature=0.8)
                     print("  生成样本：" + tokenizer.decode(sample[0].tolist()).replace("\n", "⏎"))
                 model.train()

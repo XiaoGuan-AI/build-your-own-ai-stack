@@ -57,6 +57,18 @@ python code/ch01/bpe.py --demo
 
 Full instructions in [docs/chapter-00-setup-and-math.md](docs/chapter-00-setup-and-math.md).
 
+### Installing PyTorch behind the GFW (China network)
+
+`pip install torch` can hang on mainland networks. Verified working fallbacks:
+
+```bash
+# Option A: Tsinghua PyPI mirror
+pip install torch -i https://pypi.tuna.tsinghua.edu.cn/simple
+# Option B: download the CPU wheel directly (fast on CN networks), then install locally
+curl -L -o torch.whl https://download.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp311-cp311-win_amd64.whl
+pip install ./torch.whl
+```
+
 ### Run the test suite (every chapter verified)
 
 ```bash
@@ -117,6 +129,18 @@ python code/ch01/bpe.py --demo
 ```
 
 完整环境搭建见 [docs/chapter-00-setup-and-math.md](docs/chapter-00-setup-and-math.md)。
+
+### 国内网络安装 torch（实测有效的备选路线）
+
+`pip install torch` 在国内网络可能卡死。以下路线实测可用：
+
+```bash
+# 路线 A：清华 PyPI 镜像
+pip install torch -i https://pypi.tuna.tsinghua.edu.cn/simple
+# 路线 B：直连下载 CPU wheel 后本地安装（国内网络直连 download.pytorch.org 通常很快）
+curl -L -o torch.whl https://download.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp311-cp311-win_amd64.whl
+pip install ./torch.whl
+```
 
 ### 跑测试套件（每章都有断言验证）
 

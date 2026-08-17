@@ -17,6 +17,9 @@ python --version
 
 # 安装 PyTorch（CPU 版就够用到第 2 章；有 NVIDIA 显卡可换 CUDA 版）
 pip install torch
+# 国内网络装不动的备选路线（实测有效）：用清华 PyPI 镜像
+#   pip install torch -i https://pypi.tuna.tsinghua.edu.cn/simple
+# 或直接下载 CPU wheel 本地安装（uv 用户）——详见 README「国内安装 torch」小节
 ```
 
 验证一下：

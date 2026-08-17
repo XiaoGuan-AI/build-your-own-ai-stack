@@ -49,7 +49,11 @@ def run(ckpt: str | None = None, proj: str | None = None):
                          "--n-layers", "2", "--block-size", "64", "--batch-size", "16",
                          "--ckpt", tmp_ckpt, "--resume"],
                         capture_output=True, text=True, timeout=300)
-    check("--resume 恢复配置", r2.returncode == 0 and "已从 checkpoint 恢复配置" in r2.stdout)
+    # P1-2 加强：resume 必须真的续训（有训练日志），且 ckpt step 前移
+    state2 = torch.load(tmp_ckpt, map_location="cpu", weights_only=True)
+    check("--resume 真续训", r2.returncode == 0 and "已从 checkpoint 恢复配置" in r2.stdout
+          and "step" in r2.stdout and state2["step"] > state["step"],
+          f"(step {state['step']} -> {state2['step']})")
     # P0-1 回归：ckpt 目录不存在时自动创建（复查#1 确认路径）
     deep_ckpt = str(pathlib.Path(proj) / "tests/.cache/no-such-dir/sub/ckpt.pt")
     r3 = subprocess.run([py, train, "--epochs", "50", "--d-model", "32",
@@ -57,10 +61,21 @@ def run(ckpt: str | None = None, proj: str | None = None):
                          "--ckpt", deep_ckpt],
                         capture_output=True, text=True, timeout=300)
     check("ckpt 目录自动创建", r3.returncode == 0 and pathlib.Path(deep_ckpt).exists())
+    # P0-1 回归：自定义语料（不含"床"）训练不崩（原硬编码 seed 必 KeyError）
+    en_corpus = str(pathlib.Path(proj) / "tests/.cache/corpus-en.txt")
+    pathlib.Path(en_corpus).write_text(
+        "the quick brown fox jumps over the lazy dog. " * 5, encoding="utf-8")
+    r4 = subprocess.run([py, train, "--data", en_corpus, "--epochs", "20",
+                         "--d-model", "32", "--n-layers", "1", "--block-size", "48",
+                         "--batch-size", "8", "--ckpt", tmp_ckpt],
+                        capture_output=True, text=True, timeout=300)
+    check("--data 英文语料跑通", r4.returncode == 0 and "训练完成" in r4.stdout,
+          f"(rc={r4.returncode})")
     return passed, failed
 
 
 if __name__ == "__main__":
-    p, f = run(ckpt="tests/.cache/shared-model.pt")
+    # 套件加固：绝对路径，避免在 tests/ 下独立运行时重训到 tests/tests/
+    p, f = run(ckpt=str(pathlib.Path(__file__).resolve().parent / ".cache" / "shared-model.pt"))
     print(f"===== {p} passed, {f} failed =====")
     sys.exit(1 if f else 0)

@@ -42,6 +42,8 @@ def run(ckpt: str | None = None, proj: str | None = None):
     check("search 命中知识库", "梯度下降" in tools.call("search", "什么是梯度下降"))
     check("未知工具报错", "未知工具" in tools.call("nope", ""))
     check("DoS 大整数幂被拒", "错误" in tools.call("calc", "9**9**9"))
+    check("2**-1 允许（规则统一）", tools.call("calc", "2**-1") == "0.5")
+    check("负指数超限被拒", "错误" in tools.call("calc", "2**-30"))
     check("结果超限被拒", "错误" in tools.call("calc", "10**30"))
     check("嵌套括号解析", agent.parse_action("Action: calc((2+3)*4)") == ("calc", "(2+3)*4"))
 

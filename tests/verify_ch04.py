@@ -49,6 +49,12 @@ def run(ckpt: str | None = None, proj: str | None = None):
                            "--max-new-tokens", "20", "--temperature", "0.8", "--top-k", "40"],
                           capture_output=True, text=True, timeout=180)
     check("OOV prompt 不崩（M4 兜底）", r_ov.returncode == 0, f"(rc={r_ov.returncode})")
+    # P1-3 回归：CLI temperature=0 友好报错，不裸 Traceback
+    r_t0 = subprocess.run([py, str(pathlib.Path(proj) / "code/ch04/inference.py"),
+                           "--ckpt", ckpt, "--prompt", "测试", "--temperature", "0"],
+                          capture_output=True, text=True, timeout=60)
+    check("CLI temperature=0 友好报错", r_t0.returncode != 0 and "Traceback" not in r_t0.stderr,
+          f"(rc={r_t0.returncode}, stderr={r_t0.stderr[:80]!r})")
     check("CLI 退出码 0", r.returncode == 0, f"(rc={r.returncode})")
     m = re.search(r"【生成】(.*)", r.stdout)
     check("生成非空", m is not None and len(m.group(1)) > 5)

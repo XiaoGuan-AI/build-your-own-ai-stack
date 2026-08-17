@@ -82,6 +82,20 @@ def run(ckpt: str | None = None, proj: str | None = None):
     except ValueError:
         check("top_p 越界报错", True)
 
+    # P2 回归：d_model 奇数构造期报错（正弦位置编码需要偶数）
+    try:
+        MiniTransformer(vocab_size=65, d_model=33, n_heads=1, n_layers=1)
+        check("d_model 奇数报错", False)
+    except AssertionError:
+        check("d_model 奇数报错", True)
+    # P2 回归：超长回退 cache==no-cache 一致性（prompt+new 超过 max_len）
+    long = torch.randint(1, V, (1, 30))
+    torch.manual_seed(7)
+    oc2 = model.generate(long, max_new_tokens=120, temperature=0.9, top_k=40, use_cache=True)
+    torch.manual_seed(7)
+    of2 = model.generate(long, max_new_tokens=120, temperature=0.9, top_k=40, use_cache=False)
+    check("超长回退一致性", torch.equal(oc2, of2))
+
     # 审查 S3 回归：max_len>1024 前向不再崩溃（mask 与 max_len 绑定）
     big = MiniTransformer(vocab_size=65, d_model=32, n_heads=4, n_layers=1, max_len=2048)
     out_big = big(torch.randint(0, 65, (1, 1500)))

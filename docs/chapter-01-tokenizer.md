@@ -1,7 +1,7 @@
 # 第 1 章：手搓 Tokenizer（BPE）
 
 > 目标：亲手实现一个大模型同款分词器。学完本章，你写出的 BPE 与 GPT-2 的 tiktoken 核心机制一致。
-> 代码：`code/ch01/bpe.py`（约 100 行，零依赖），先跑为敬：
+> 代码：`code/ch01/bpe.py`（约 180 行，零依赖），先跑为敬：
 
 ```bash
 python code/ch01/bpe.py --demo

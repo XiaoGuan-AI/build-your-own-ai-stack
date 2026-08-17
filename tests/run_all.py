@@ -22,7 +22,13 @@ MODULES = [f"verify_ch{i:02d}" for i in range(10)]
 
 def train_shared_model() -> None:
     if CKPT.exists():
-        return
+        try:                            # 套件加固：损坏的共享模型重新训练
+            import torch
+            torch.load(CKPT, map_location="cpu", weights_only=True)
+            return
+        except Exception:
+            print("共享模型损坏，重新训练…")
+            CKPT.unlink(missing_ok=True)
     CACHE.mkdir(parents=True, exist_ok=True)
     print("训练共享测试模型（约 6 秒）…")
     r = subprocess.run(
@@ -43,8 +49,12 @@ def main() -> None:
     grand = passed = failed = 0
     for name in MODULES:
         print(f"\n===== {name} =====")
-        mod = importlib.import_module(name)
-        p, f = mod.run(ckpt=str(CKPT), proj=str(PROJ))
+        try:                            # 套件加固：单模块崩溃转 FAIL，不拖垮整个套件
+            mod = importlib.import_module(name)
+            p, f = mod.run(ckpt=str(CKPT), proj=str(PROJ))
+        except Exception as e:
+            print(f"  ❌ {name} 崩溃：{type(e).__name__}: {e}")
+            p, f = 0, 1
         grand += p + f
         passed += p
         failed += f

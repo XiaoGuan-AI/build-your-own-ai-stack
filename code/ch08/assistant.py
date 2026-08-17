@@ -92,6 +92,8 @@ class MiniAssistant:
         prompt = f"Background: {context}\n" if context else ""
         prompt += f"Q: {question}\nA: "
         prompt = sanitize(prompt, self.tokenizer)
+        # P0-2 修复：超窗钳制（与 ch05 同款），至少生成 1 个 token
+        max_new = min(max_new, max(1, self.cfg["max_len"] - len(prompt) - 2))
         prompt = prompt[: self.cfg["max_len"] - max_new - 2]
         ids = torch.tensor([self.tokenizer.encode(prompt)], device=self.device)
         out = self.model.generate(ids, max_new_tokens=max_new,
@@ -131,6 +133,10 @@ def main() -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     assistant = MiniAssistant(args.ckpt, device)
 
+    if args.show_tools:
+        print("助手路由：/help 命令 | 数学→calc 工具 | 知识→RAG 检索 | 闲聊→模型生成")
+        print("工具：calc(四则) search(知识库) now(时间) file_read(项目文件, 白名单)")
+        return
     if args.ask:
         print(f"你> {args.ask}")
         print(f"助手> {assistant.answer(args.ask)}")

@@ -1,14 +1,19 @@
 # 第 9 章：上线——从代码到服务
 
 > 目标：把大作业变成「别人能用的服务」，并看清从教学 demo 到生产系统的差距。
-> 代码：`code/ch09/serve.py`（约 150 行，纯标准库 HTTP 服务）。
+> 代码：`code/ch09/serve.py`（约 100 行，纯标准库 HTTP 服务）。
 
 ```bash
 .venv/Scripts/python.exe code/ch09/serve.py --port 18600
 # 另开一个终端：
+curl -s http://127.0.0.1:18600/health
+# Linux/macOS（全 UTF-8）：可以直接在命令行里写中文
 curl -s -X POST http://127.0.0.1:18600/generate -H "Content-Type: application/json" \
      -d '{"prompt": "2+3*4 等于多少"}'
-curl -s http://127.0.0.1:18600/health
+# Windows（cmd/git-bash/PowerShell）：命令行中文会因编码坏掉，改用 UTF-8 文件（实测有效）
+echo {"prompt": "2+3*4 等于多少"} > req.json
+curl -s -X POST http://127.0.0.1:18600/generate -H "Content-Type: application/json" \
+     --data-binary @req.json
 ```
 
 ---

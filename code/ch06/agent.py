@@ -65,8 +65,8 @@ def _safe_eval(expr: str):
         if isinstance(n, ast.BinOp) and type(n.op) in _OPS:
             left, right = _eval(n.left), _eval(n.right)
             if type(n.op) is ast.Pow:
-                if not isinstance(right, int) or not 0 <= right <= 20:
-                    raise ValueError("幂运算指数仅支持 0~20 的整数（防溢出）")
+                if not isinstance(right, (int, float)) or not -20 <= right <= 20:
+                    raise ValueError("幂运算指数仅支持 -20~20 的数值（防溢出）")
             result = _OPS[type(n.op)](left, right)
             if abs(result) > 1e15:
                 raise ValueError("结果超出安全范围（±1e15）")

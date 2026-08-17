@@ -113,6 +113,7 @@ class MiniTransformer(nn.Module):
     def __init__(self, vocab_size: int, d_model: int = 64,
                  n_heads: int = 4, n_layers: int = 2, max_len: int = 256):
         super().__init__()
+        assert d_model % 2 == 0, "d_model 必须为偶数（正弦位置编码需要）"   # P2 构造期校验
         self.vocab_size = vocab_size
         self.d_model = d_model
         self.max_len = max_len

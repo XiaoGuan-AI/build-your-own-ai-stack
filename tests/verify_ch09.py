@@ -9,10 +9,15 @@ import time
 import urllib.request
 import urllib.error
 
-import random
+import socket
 
 passed = failed = 0
-PORT = random.randint(19000, 19999)   # 动态端口：防上次残留占用（专家2）
+def _free_port():                       # 套件加固：系统分配空闲端口，杜绝撞车
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+PORT = _free_port()
 
 
 def check(name, cond, detail=""):

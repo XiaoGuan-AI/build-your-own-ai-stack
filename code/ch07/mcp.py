@@ -156,7 +156,9 @@ class McpServer:
                 if err:
                     return {"jsonrpc": "2.0", "id": rid,
                             "error": {"code": -32602, "message": err}}
-                result = fn(**args)
+                allowed = set(schema.parameters)              # P1-4：只传 schema 声明的参数（多余忽略）
+                kwargs = {k: v for k, v in args.items() if k in allowed}
+                result = fn(**kwargs)
                 return {"jsonrpc": "2.0", "id": rid, "result": str(result)}
             except Exception as e:
                 return {"jsonrpc": "2.0", "id": rid,

@@ -61,6 +61,9 @@ def run(ckpt: str | None = None, proj: str | None = None):
     r = handle({"jsonrpc": "2.0", "id": 12, "method": "call_tool",
                 "params": {"name": "calc", "arguments": {"expression": "9**9**9"}}})
     check("MCP calc DoS 被拒（复查#2）", "error" in r, f"(got {r.get('error', {}).get('message', '')[:40]})")
+    r = handle({"jsonrpc": "2.0", "id": 13, "method": "call_tool",
+                "params": {"name": "calc", "arguments": {"expression": "1+1", "extra": 123}}})
+    check("多余参数忽略（P1-4）", r.get("result") == "2", f"(got {r.get('result')!r})")
     r = handle({"jsonrpc": "2.0", "id": 10, "method": "call_tool",
                 "params": {"name": "file_read", "arguments": {"path": "README.md:stream"}}})
     check("NTFS ADS 流被拒", "error" in r and "ADS" in r["error"]["message"],

@@ -133,7 +133,9 @@ def generate_with_context(model: MiniTransformer, tokenizer: CharTokenizer,
                           temperature: float, top_k: int, device: str) -> str:
     # 模型只能看到词表内的字符；prompt 超长时截断到模型窗口内
     prompt = sanitize(prompt, tokenizer)
-    prompt = prompt[: model.max_len - max_new_tokens - 2]
+    # P0-2 修复：max_new 超窗会切出空串导致崩溃——钳到窗口内，至少生成 1 个 token
+    max_new = min(max_new_tokens, max(1, model.max_len - len(prompt) - 2))
+    prompt = prompt[: model.max_len - max_new - 2]
     ids = torch.tensor([tokenizer.encode(prompt)], device=device)
     out = model.generate(ids, max_new_tokens=max_new_tokens,
                          temperature=temperature, top_k=top_k)

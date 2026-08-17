@@ -157,6 +157,14 @@ def run_interactive(model: MiniTransformer, tokenizer: CharTokenizer,
 
 # ======================================================================
 def main() -> None:
+    try:
+        _main()
+    except (ValueError, KeyError) as e:
+        print(f"❌ 参数错误：{e}", file=sys.stderr)      # P1-3：友好报错，不裸 Traceback
+        sys.exit(1)
+
+
+def _main() -> None:
     parser = argparse.ArgumentParser(description="第 4 章：推理引擎")
     parser.add_argument("--ckpt", type=str, default="checkpoints/ch03-demo.pt", help="模型 checkpoint")
     parser.add_argument("--prompt", type=str, default="床前明月光", help="生成提示")
