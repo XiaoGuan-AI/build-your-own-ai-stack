@@ -39,7 +39,8 @@ class CausalSelfAttention(nn.Module):
         self.proj = nn.Linear(d_model, d_model, bias=False)   # 拼头后的输出投影
         # 因果掩码：上三角为 False（未来位置），登记为 buffer 随模型移动。
         # 审查 S3 修复：mask 尺寸与 max_len 绑定（原硬编码 1024，max_len>1024 会越界崩溃）
-        self.register_buffer("mask", torch.tril(torch.ones(1, 1, max_len, max_len)))
+        # persistent=False：mask 不进 checkpoint——旧 ckpt 加载不再 size mismatch（复查#1）
+        self.register_buffer("mask", torch.tril(torch.ones(1, 1, max_len, max_len)), persistent=False)
 
     def forward(self, x: torch.Tensor, cache: dict | None = None) -> torch.Tensor:
         B, T, C = x.shape                       # B=batch, T=序列长, C=d_model
@@ -162,6 +163,13 @@ class MiniTransformer(nn.Module):
         KV Cache：第一步对整段 prompt 前向（顺带填 cache），之后每步只前向最后 1 个 token。
         """
         self.eval()
+        # 复查#4/#7：入口统一校验采样参数（原 CLI temperature=0 崩溃、负温度静默出垃圾）
+        if temperature <= 0:
+            raise ValueError("temperature 必须 > 0")
+        if top_k is not None and top_k < 1:
+            raise ValueError("top_k 必须 >= 1")
+        if top_p is not None and not 0 < top_p <= 1:
+            raise ValueError("top_p 必须在 (0, 1] 区间")
         cache: dict = {}
         for i in range(max_new_tokens):
             if not use_cache:

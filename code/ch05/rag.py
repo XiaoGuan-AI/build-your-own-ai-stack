@@ -120,8 +120,12 @@ def build_prompt(query: str, contexts: list[tuple[str, str, float]]) -> str:
 
 
 def sanitize(text: str, tokenizer: CharTokenizer) -> str:
-    """把词表外字符替换为空格（字符级分词器的 OOV 兜底；BPE 无此问题）。"""
-    return "".join(c if c in tokenizer.stoi else " " for c in text)
+    """把词表外字符替换为词表内字符（字符级分词器的 OOV 兜底；BPE 无此问题）。
+
+    复查#6：兜底字符必须取词表内的（空格可能不在无空格语料的词表里）。
+    """
+    fallback = " " if " " in tokenizer.stoi else next(iter(tokenizer.stoi))
+    return "".join(c if c in tokenizer.stoi else fallback for c in text)
 
 
 def generate_with_context(model: MiniTransformer, tokenizer: CharTokenizer,

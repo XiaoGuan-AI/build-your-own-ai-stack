@@ -65,6 +65,22 @@ def run(ckpt: str | None = None, proj: str | None = None):
     torch.manual_seed(3)
     of = model.generate(ids, max_new_tokens=20, temperature=0.9, top_k=40, use_cache=False)
     check("KV Cache 一致性", torch.equal(oc, of))
+    # 复查#4 回归：generate 入口参数校验
+    try:
+        model.generate(torch.tensor([[1]]), max_new_tokens=3, temperature=0)
+        check("temperature=0 报错", False)
+    except ValueError:
+        check("temperature=0 报错", True)
+    try:
+        model.generate(torch.tensor([[1]]), max_new_tokens=3, top_k=0)
+        check("top_k=0 报错", False)
+    except ValueError:
+        check("top_k=0 报错", True)
+    try:
+        model.generate(torch.tensor([[1]]), max_new_tokens=3, top_p=1.5)
+        check("top_p 越界报错", False)
+    except ValueError:
+        check("top_p 越界报错", True)
 
     # 审查 S3 回归：max_len>1024 前向不再崩溃（mask 与 max_len 绑定）
     big = MiniTransformer(vocab_size=65, d_model=32, n_heads=4, n_layers=1, max_len=2048)

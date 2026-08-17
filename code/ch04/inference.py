@@ -39,7 +39,8 @@ def load_model(ckpt_path: str, device: str = "cpu"):
         "旧版 checkpoint 没有 cfg。请重新训练：.venv/Scripts/python.exe code/ch03/train.py --demo"
     )
     model = MiniTransformer(**state["cfg"]).to(device)
-    model.load_state_dict(state["model"])
+    # 复查#1：strict=False——旧 ckpt 含 persistent mask 键（1024²），新模型按 max_len 重建
+    model.load_state_dict(state["model"], strict=False)
     model.eval()
     print(f"已加载模型：{state['cfg']} | 训练到第 {state['step']} 步，loss {state['loss']:.4f}")
     return model, state["cfg"]
@@ -96,6 +97,9 @@ def benchmark(model: MiniTransformer, tokenizer: CharTokenizer,
     # 基准测试限制生成长度，保证 Cache 全程生效（加速比才是「纯加速」）。
     max_new_tokens = min(max_new_tokens, model.max_len - len(prompt) - 5)
     print(f"\n===== KV Cache 基准（prompt={prompt!r}，生成 {max_new_tokens} token）=====")
+    # 复查#6：benchmark 同样做 OOV 兜底
+    fallback = " " if " " in tokenizer.stoi else next(iter(tokenizer.stoi))
+    prompt = "".join(c if c in tokenizer.stoi else fallback for c in prompt)
     prompt_ids = torch.tensor([tokenizer.encode(prompt)], device=device)
     prompt_len = len(prompt)
 
@@ -121,8 +125,9 @@ def benchmark(model: MiniTransformer, tokenizer: CharTokenizer,
 def run_once(model: MiniTransformer, tokenizer: CharTokenizer, prompt: str,
              max_new_tokens: int, temperature: float, top_k: int | None,
              top_p: float | None, device: str) -> None:
-    # 审查 M4 修复：字符级词表 OOV 兜底（真实系统用 BPE 无此问题）
-    prompt = "".join(c if c in tokenizer.stoi else " " for c in prompt)
+    # 审查 M4 修复 + 复查#6：OOV 兜底字符必须取词表内字符（空格可能不在词表）
+    fallback = " " if " " in tokenizer.stoi else next(iter(tokenizer.stoi))
+    prompt = "".join(c if c in tokenizer.stoi else fallback for c in prompt)
     prompt_ids = torch.tensor([tokenizer.encode(prompt)], device=device)
     out = generate(model, prompt_ids, max_new_tokens=max_new_tokens,
                    temperature=temperature, top_k=top_k, top_p=top_p)

@@ -43,6 +43,12 @@ def run(ckpt: str | None = None, proj: str | None = None):
                         "--ckpt", ckpt, "--prompt", "锄禾日当午",
                         "--max-new-tokens", "30", "--temperature", "0.8", "--top-k", "40"],
                        capture_output=True, text=True, timeout=180)
+    # OOV prompt 端到端（专家2：原 CLI 测试全在词表内，M4 兜底无断言保护）
+    r_ov = subprocess.run([py, str(pathlib.Path(proj) / "code/ch04/inference.py"),
+                           "--ckpt", ckpt, "--prompt", "量子纠缠与虫洞？？",
+                           "--max-new-tokens", "20", "--temperature", "0.8", "--top-k", "40"],
+                          capture_output=True, text=True, timeout=180)
+    check("OOV prompt 不崩（M4 兜底）", r_ov.returncode == 0, f"(rc={r_ov.returncode})")
     check("CLI 退出码 0", r.returncode == 0, f"(rc={r.returncode})")
     m = re.search(r"【生成】(.*)", r.stdout)
     check("生成非空", m is not None and len(m.group(1)) > 5)

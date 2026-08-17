@@ -28,6 +28,10 @@ def run(ckpt: str | None = None, proj: str | None = None):
     check("parse_action", agent.parse_action("Thought: x\nAction: calc(2+3*4)") == ("calc", "2+3*4"))
     check("parse_action 中文参数",
           agent.parse_action("Action: search(什么是梯度下降)") == ("search", "什么是梯度下降"))
+    check("空参数 now() 解析（复查#5）", agent.parse_action("Action: now()") == ("now", ""))
+    check("多行多 Action 取首个（复查#5）",
+          agent.parse_action("Action: calc(1+1)\nAction: search(x)") == ("calc", "1+1"))
+    check("嵌套括号（复查#5）", agent.parse_action("Action: calc((2+3)*4)") == ("calc", "(2+3)*4"))
     check("parse_action 无匹配返回 None", agent.parse_action("随便说") is None)
     check("parse_answer", agent.parse_answer("Thought: 好了\nAnswer: 结果是 14") == "结果是 14")
 

@@ -9,8 +9,10 @@ import time
 import urllib.request
 import urllib.error
 
+import random
+
 passed = failed = 0
-PORT = 18996
+PORT = random.randint(19000, 19999)   # 动态端口：防上次残留占用（专家2）
 
 
 def check(name, cond, detail=""):

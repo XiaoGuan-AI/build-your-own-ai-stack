@@ -52,6 +52,15 @@ def run(ckpt: str | None = None, proj: str | None = None):
     r = handle({"jsonrpc": "2.0", "id": 9, "method": "call_tool", "params": 42})
     check("params 非 dict 不崩", "error" in r or "result" in r,
           f"(got {json.dumps(r, ensure_ascii=False)[:60]})")
+    r = handle([1, 2])                        # 复查#3：request 非 dict
+    check("request 非 dict 不崩", "error" in r or "result" in r)
+    r = handle({"jsonrpc": "2.0", "id": 11, "method": "call_tool",
+                "params": {"name": "calc", "arguments": 42}})
+    check("arguments 非 dict 不崩", "error" in r or "result" in r,
+          f"(got {json.dumps(r, ensure_ascii=False)[:60]})")
+    r = handle({"jsonrpc": "2.0", "id": 12, "method": "call_tool",
+                "params": {"name": "calc", "arguments": {"expression": "9**9**9"}}})
+    check("MCP calc DoS 被拒（复查#2）", "error" in r, f"(got {r.get('error', {}).get('message', '')[:40]})")
     r = handle({"jsonrpc": "2.0", "id": 10, "method": "call_tool",
                 "params": {"name": "file_read", "arguments": {"path": "README.md:stream"}}})
     check("NTFS ADS 流被拒", "error" in r and "ADS" in r["error"]["message"],

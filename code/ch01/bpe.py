@@ -40,6 +40,7 @@ class BPETokenizer:
         chars = sorted(set(text))
         self.char_to_id = {c: i for i, c in enumerate(chars)}
         self.vocab = {i: c for c, i in self.char_to_id.items()}
+        self.merges = []                        # M3 修复：二次 train 必须清空旧合并规则
         ids = [self.char_to_id[c] for c in text]          # 文本转成 id 序列
 
         num_merges = self.vocab_size - len(self.vocab)    # 还剩多少次合并额度

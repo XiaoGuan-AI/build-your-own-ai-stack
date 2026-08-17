@@ -68,13 +68,21 @@ _OPS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
 
 
 def _safe_calc(expr: str) -> float:
+    """复查#2：与 ch06 同款守卫——幂限指数、结果限幅，防 9**9**9 类 DoS。"""
     node = ast.parse(expr, mode="eval").body
 
     def _eval(n):
         if isinstance(n, ast.Constant) and isinstance(n.value, (int, float)):
             return n.value
         if isinstance(n, ast.BinOp) and type(n.op) in _OPS:
-            return _OPS[type(n.op)](_eval(n.left), _eval(n.right))
+            left, right = _eval(n.left), _eval(n.right)
+            if type(n.op) is ast.Pow:
+                if not isinstance(right, (int, float)) or not -20 <= right <= 20:
+                    raise ValueError("幂运算指数仅支持 -20~20（防溢出）")
+            result = _OPS[type(n.op)](left, right)
+            if abs(result) > 1e15:
+                raise ValueError("结果超出安全范围（±1e15）")
+            return result
         if isinstance(n, ast.UnaryOp) and type(n.op) in _OPS:
             return _OPS[type(n.op)](_eval(n.operand))
         raise ValueError(f"不允许的表达式：{expr}")
@@ -123,6 +131,8 @@ class McpServer:
     # ==================================================================
     def handle(self, request: dict) -> dict:
         """处理一个协议请求，返回协议响应。"""
+        if not isinstance(request, dict):       # 复查#3：request 非 dict 容错
+            request = {}
         method = request.get("method")
         rid = request.get("id")
         params = request.get("params", {})
@@ -135,15 +145,17 @@ class McpServer:
         if method == "call_tool":
             name = params.get("name")
             args = params.get("arguments", {})
+            if not isinstance(args, dict):      # 复查#3：arguments 非 dict 容错
+                args = {}
             if name not in self.tools:
                 return {"jsonrpc": "2.0", "id": rid,
                         "error": {"code": -32601, "message": f"未知工具：{name}"}}
             schema, fn = self.tools[name]
-            err = schema.validate(args)
-            if err:
-                return {"jsonrpc": "2.0", "id": rid,
-                        "error": {"code": -32602, "message": err}}
-            try:
+            try:                                # validate 与调用同进 try（原 validate 在 try 外可崩）
+                err = schema.validate(args)
+                if err:
+                    return {"jsonrpc": "2.0", "id": rid,
+                            "error": {"code": -32602, "message": err}}
                 result = fn(**args)
                 return {"jsonrpc": "2.0", "id": rid, "result": str(result)}
             except Exception as e:

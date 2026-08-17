@@ -116,16 +116,21 @@ class ToolRegistry:
 # ======================================================================
 # 6.2 动作解析：从模型输出里提取 Action / Answer
 # ======================================================================
-# 审查 M5 修复：贪婪匹配到行尾，支持嵌套括号 calc((2+3)*4)（原只匹配到第一个 ')'）
-_ACTION_RE = re.compile(r"Action\s*:\s*(\w+)\s*\((.+)\)\s*$", re.I | re.S)
+# 审查 M5 修复 + 复查#5：逐行匹配（支持空参数 now()、多 Action 行、嵌套括号）
+_ACTION_RE = re.compile(r"Action\s*:\s*(\w+)\s*\((.*)\)\s*$", re.I)
 _ANSWER_RE = re.compile(r"Answer\s*:\s*(.+)", re.I)
 
 
 def parse_action(text: str) -> tuple[str, str] | None:
-    """解析 'Action: calc(2+3)' -> ('calc', '2+3')；找不到返回 None。"""
-    m = _ACTION_RE.search(text)
-    if m:
-        return m.group(1), m.group(2).strip()
+    """解析 'Action: calc(2+3)' -> ('calc', '2+3')；找不到返回 None。
+
+    复查#5：按行匹配——空参数 now()、多 Action 行、嵌套括号都支持；
+    每行独立匹配，避免贪婪跨行吞并。
+    """
+    for line in text.splitlines():
+        m = _ACTION_RE.search(line)
+        if m:
+            return m.group(1), m.group(2).strip()
     return None
 
 
@@ -175,7 +180,8 @@ class LLMBrain:
             prompt += f"Observation: {observation}\n"
         prompt += "Think step by step. If you need a tool, write 'Action: tool(args)'. "
         prompt += "When done, write 'Answer: ...'\nThought:"
-        prompt = "".join(c if c in self.tokenizer.stoi else " " for c in prompt)
+        fallback = " " if " " in self.tokenizer.stoi else next(iter(self.tokenizer.stoi))
+        prompt = "".join(c if c in self.tokenizer.stoi else fallback for c in prompt)
         ids = torch.tensor([self.tokenizer.encode(prompt)], device=self.device)
         out = self.model.generate(ids, max_new_tokens=self.max_new_tokens,
                                   temperature=0.9, top_k=40)

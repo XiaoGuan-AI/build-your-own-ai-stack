@@ -98,9 +98,10 @@ def train(args) -> None:
         state = torch.load(ckpt_path, map_location="cpu", weights_only=True)
         if "cfg" in state:
             cfg = state["cfg"]
+            args.block_size = cfg["max_len"]    # 复查#9：block-size 以训练时为准
             print(f"已从 checkpoint 恢复配置：{cfg}")
         model = MiniTransformer(**cfg)
-        model.load_state_dict(state["model"])
+        model.load_state_dict(state["model"], strict=False)   # 复查#1：兼容旧 ckpt mask 键
         optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
         optimizer.load_state_dict(state["optimizer"])
         start_step = state["step"]
