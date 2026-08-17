@@ -57,6 +57,12 @@ python code/ch01/bpe.py --demo
 
 Full instructions in [docs/chapter-00-setup-and-math.md](docs/chapter-00-setup-and-math.md).
 
+### Run the test suite (every chapter verified)
+
+```bash
+.venv/Scripts/python.exe tests/run_all.py   # 72 assertions, ~30s
+```
+
 ### Contributing
 
 PRs welcome — especially: bug reports, better Chinese/English explanations, translated chapters, and lab exercises. See [CONTRIBUTING.md](CONTRIBUTING.md) (coming soon).
@@ -111,6 +117,12 @@ python code/ch01/bpe.py --demo
 ```
 
 完整环境搭建见 [docs/chapter-00-setup-and-math.md](docs/chapter-00-setup-and-math.md)。
+
+### 跑测试套件（每章都有断言验证）
+
+```bash
+.venv/Scripts/python.exe tests/run_all.py   # 72 项断言，约 30 秒
+```
 
 ### 贡献
 
