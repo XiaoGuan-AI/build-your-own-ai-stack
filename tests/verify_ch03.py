@@ -23,7 +23,7 @@ def run(ckpt: str | None = None, proj: str | None = None):
     global passed, failed
     passed = failed = 0
     proj = proj or str(pathlib.Path(__file__).resolve().parent.parent)
-    py = str(pathlib.Path(proj) / ".venv/Scripts/python.exe")
+    py = sys.executable
     train = str(pathlib.Path(proj) / "code/ch03/train.py")
 
     # 训练（若共享模型不存在则生成）

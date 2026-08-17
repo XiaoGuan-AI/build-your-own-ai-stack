@@ -34,7 +34,7 @@ def run(ckpt: str | None = None, proj: str | None = None):
     check("命令 /quit", a.answer("/quit") == "__QUIT__")
     check("闲聊有回应", len(a.answer("你好呀")) > 0)
 
-    py = str(pathlib.Path(proj) / ".venv/Scripts/python.exe")
+    py = sys.executable
     r = subprocess.run([py, str(pathlib.Path(proj) / "code/ch08/assistant.py"),
                         "--ckpt", ckpt, "--ask", "2+3*4 等于多少"],
                        capture_output=True, text=True, timeout=180)

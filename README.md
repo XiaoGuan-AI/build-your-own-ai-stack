@@ -44,7 +44,7 @@
 └─────────────┘   └─────────────────────┘   └──────────┘   └────────────┘
 ```
 
-No GPU? Chapter 0–2, 4–9 run on CPU. Only Chapter 3 (pretraining) needs a GPU — a 64M model trains in ~2 hours on one 4090.
+No GPU? Chapter 0–2, 4–9 run on CPU. Only the 64M pretraining in Chapter 3 needs a GPU — the built-in demo config trains a tiny model on CPU in ~10 seconds, and the full 64M run takes ~2 hours on one 4090.
 
 ### Quick start
 
@@ -60,7 +60,7 @@ Full instructions in [docs/chapter-00-setup-and-math.md](docs/chapter-00-setup-a
 ### Run the test suite (every chapter verified)
 
 ```bash
-.venv/Scripts/python.exe tests/run_all.py   # 72 assertions, ~30s
+.venv/Scripts/python.exe tests/run_all.py   # 79 assertions, ~30s
 ```
 
 ### Contributing
@@ -105,7 +105,7 @@ MIT © XiaoGuan-AI
 └─────────────┘   └─────────────────────┘   └──────────┘   └────────────┘
 ```
 
-没有 GPU 也能学：第 0–2、4–9 章 CPU 就能跑，只有第 3 章（预训练）需要 GPU——64M 模型在一张 4090 上约 2 小时训完。
+没有 GPU 也能学：第 0–2、4–9 章 CPU 就能跑；第 3 章的 64M 真·预训练需要 GPU（4090 约 2 小时），内置 demo 配置用 CPU 约 10 秒训完。
 
 ### 快速开始
 
@@ -121,7 +121,7 @@ python code/ch01/bpe.py --demo
 ### 跑测试套件（每章都有断言验证）
 
 ```bash
-.venv/Scripts/python.exe tests/run_all.py   # 72 项断言，约 30 秒
+.venv/Scripts/python.exe tests/run_all.py   # 79 项断言，约 30 秒
 ```
 
 ### 贡献

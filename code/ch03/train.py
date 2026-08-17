@@ -5,7 +5,7 @@
 
 用法：
     .venv/Scripts/python.exe code/ch03/train.py --demo
-        # CPU 快速演示：内置唐诗语料，约 1~2 分钟，肉眼可见 loss 下降
+        # CPU 快速演示：内置唐诗语料，约 10 秒，肉眼可见 loss 下降
     .venv/Scripts/python.exe code/ch03/train.py --data data/tiny_shakespeare.txt --epochs 5000
         # 认真跑：自定义语料（第 3 章文档 3.9 有进阶玩法）
     .venv/Scripts/python.exe code/ch03/train.py --resume
@@ -142,6 +142,7 @@ def train(args) -> None:
                   f"{speed:.1f} 步/秒 | {elapsed:.0f}s", end="")
             if loss.item() < best_loss:
                 best_loss = loss.item()
+                ckpt_path.parent.mkdir(parents=True, exist_ok=True)   # 验收 P0-1：先建目录
                 torch.save({"model": model.state_dict(), "optimizer": optimizer.state_dict(),
                             "step": step, "loss": loss.item(), "cfg": cfg}, ckpt_path)
                 print("  💾 checkpoint")

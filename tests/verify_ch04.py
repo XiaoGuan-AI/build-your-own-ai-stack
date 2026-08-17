@@ -23,7 +23,7 @@ def run(ckpt: str | None = None, proj: str | None = None):
     global passed, failed
     passed = failed = 0
     proj = proj or str(pathlib.Path(__file__).resolve().parent.parent)
-    py = str(pathlib.Path(proj) / ".venv/Scripts/python.exe")
+    py = sys.executable
 
     sys.path.insert(0, str(pathlib.Path(proj) / "code/ch04"))
     import torch
@@ -46,6 +46,13 @@ def run(ckpt: str | None = None, proj: str | None = None):
     check("CLI 退出码 0", r.returncode == 0, f"(rc={r.returncode})")
     m = re.search(r"【生成】(.*)", r.stdout)
     check("生成非空", m is not None and len(m.group(1)) > 5)
+
+    # 审查 M8 回归：temperature=0 明确报错（原产生 NaN 采样）
+    try:
+        inference.sample_token(torch.tensor([[1.0, 2.0]]), temperature=0)
+        check("temperature=0 报错", False)
+    except ValueError:
+        check("temperature=0 报错", True)
     return passed, failed
 
 

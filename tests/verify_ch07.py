@@ -49,9 +49,16 @@ def run(ckpt: str | None = None, proj: str | None = None):
     r = handle({"jsonrpc": "2.0", "id": 5, "method": "call_tool",
                 "params": {"name": "calc", "arguments": {"expression": "__import__('os').system('x')"}}})
     check("危险表达式被拒", "error" in r)
+    r = handle({"jsonrpc": "2.0", "id": 9, "method": "call_tool", "params": 42})
+    check("params 非 dict 不崩", "error" in r or "result" in r,
+          f"(got {json.dumps(r, ensure_ascii=False)[:60]})")
+    r = handle({"jsonrpc": "2.0", "id": 10, "method": "call_tool",
+                "params": {"name": "file_read", "arguments": {"path": "README.md:stream"}}})
+    check("NTFS ADS 流被拒", "error" in r and "ADS" in r["error"]["message"],
+          f"(got {r.get('error', {}).get('message', '')[:40]})")
 
     # server 模式（stdout 纯协议）
-    py = str(pathlib.Path(proj) / ".venv/Scripts/python.exe")
+    py = sys.executable
     p = subprocess.Popen([py, str(pathlib.Path(proj) / "code/ch07/mcp.py"), "--server"],
                          stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                          stderr=subprocess.DEVNULL, text=True)

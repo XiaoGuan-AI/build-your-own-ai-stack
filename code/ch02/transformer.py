@@ -27,7 +27,7 @@ class CausalSelfAttention(nn.Module):
         attention = softmax( (Q·Kᵀ)/√d + 掩码 ) · V
     """
 
-    def __init__(self, d_model: int, n_heads: int):
+    def __init__(self, d_model: int, n_heads: int, max_len: int = 1024):
         super().__init__()
         assert d_model % n_heads == 0, "d_model 必须能被 n_heads 整除"
         self.d_model = d_model
@@ -37,8 +37,9 @@ class CausalSelfAttention(nn.Module):
         # QKV 投影合成一个 Linear（参数效率：一个矩阵顶三个）
         self.qkv = nn.Linear(d_model, 3 * d_model, bias=False)
         self.proj = nn.Linear(d_model, d_model, bias=False)   # 拼头后的输出投影
-        # 因果掩码：上三角为 False（未来位置），登记为 buffer 随模型移动
-        self.register_buffer("mask", torch.tril(torch.ones(1, 1, 1024, 1024)))
+        # 因果掩码：上三角为 False（未来位置），登记为 buffer 随模型移动。
+        # 审查 S3 修复：mask 尺寸与 max_len 绑定（原硬编码 1024，max_len>1024 会越界崩溃）
+        self.register_buffer("mask", torch.tril(torch.ones(1, 1, max_len, max_len)))
 
     def forward(self, x: torch.Tensor, cache: dict | None = None) -> torch.Tensor:
         B, T, C = x.shape                       # B=batch, T=序列长, C=d_model
@@ -91,10 +92,10 @@ class FeedForward(nn.Module):
 # 2.6~2.7 Block：残差 + LayerNorm + 注意力 + 残差 + LayerNorm + FFN
 # ======================================================================
 class Block(nn.Module):
-    def __init__(self, d_model: int, n_heads: int):
+    def __init__(self, d_model: int, n_heads: int, max_len: int = 1024):
         super().__init__()
         self.ln1 = nn.LayerNorm(d_model)
-        self.attn = CausalSelfAttention(d_model, n_heads)
+        self.attn = CausalSelfAttention(d_model, n_heads, max_len)
         self.ln2 = nn.LayerNorm(d_model)
         self.ffn = FeedForward(d_model)
 
@@ -116,7 +117,7 @@ class MiniTransformer(nn.Module):
         self.max_len = max_len
 
         self.token_embedding = nn.Embedding(vocab_size, d_model)
-        self.blocks = nn.Sequential(*[Block(d_model, n_heads) for _ in range(n_layers)])
+        self.blocks = nn.Sequential(*[Block(d_model, n_heads, max_len) for _ in range(n_layers)])
         self.ln_f = nn.LayerNorm(d_model)
         self.lm_head = nn.Linear(d_model, vocab_size, bias=False)   # 输出词表分数
 

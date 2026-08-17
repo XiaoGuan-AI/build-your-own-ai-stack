@@ -56,12 +56,13 @@ def sample_token(logits: torch.Tensor, temperature: float = 1.0,
     - top_k: 只保留概率最大的 k 个候选
     - top_p (nucleus): 按概率降序累计，裁掉累计概率超过 p 的尾部
     """
+    if temperature <= 0:                        # 审查 M8 修复：≤0 会产生 NaN 采样
+        raise ValueError("temperature 必须 > 0")
     logits = logits / temperature
 
     if top_k is not None:                       # 硬性候选数上限
         v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
         logits[logits < v[:, [-1]]] = float("-inf")
-
     if top_p is not None:                       # 动态候选数：保留累计概率 p 的头部
         sorted_logits, sorted_idx = torch.sort(logits, descending=True)
         probs_sorted = F.softmax(sorted_logits, dim=-1)
@@ -120,6 +121,8 @@ def benchmark(model: MiniTransformer, tokenizer: CharTokenizer,
 def run_once(model: MiniTransformer, tokenizer: CharTokenizer, prompt: str,
              max_new_tokens: int, temperature: float, top_k: int | None,
              top_p: float | None, device: str) -> None:
+    # 审查 M4 修复：字符级词表 OOV 兜底（真实系统用 BPE 无此问题）
+    prompt = "".join(c if c in tokenizer.stoi else " " for c in prompt)
     prompt_ids = torch.tensor([tokenizer.encode(prompt)], device=device)
     out = generate(model, prompt_ids, max_new_tokens=max_new_tokens,
                    temperature=temperature, top_k=top_k, top_p=top_p)

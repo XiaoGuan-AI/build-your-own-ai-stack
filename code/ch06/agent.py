@@ -53,14 +53,24 @@ _OPS = {ast.Add: operator.add, ast.Sub: operator.sub,
 
 
 def _safe_eval(expr: str):
-    """只允许数字和四则运算的 eval（用 AST 白名单，拒绝任何函数/属性调用）。"""
+    """只允许数字和四则运算的 eval（用 AST 白名单，拒绝任何函数/属性调用）。
+
+    审查修复：幂运算限指数 0~20、结果限 ±1e15——防止 9**9**9 这类大整数幂 DoS。
+    """
     node = ast.parse(expr, mode="eval").body
 
     def _eval(n):
         if isinstance(n, ast.Constant) and isinstance(n.value, (int, float)):
             return n.value
         if isinstance(n, ast.BinOp) and type(n.op) in _OPS:
-            return _OPS[type(n.op)](_eval(n.left), _eval(n.right))
+            left, right = _eval(n.left), _eval(n.right)
+            if type(n.op) is ast.Pow:
+                if not isinstance(right, int) or not 0 <= right <= 20:
+                    raise ValueError("幂运算指数仅支持 0~20 的整数（防溢出）")
+            result = _OPS[type(n.op)](left, right)
+            if abs(result) > 1e15:
+                raise ValueError("结果超出安全范围（±1e15）")
+            return result
         if isinstance(n, ast.UnaryOp) and type(n.op) in _OPS:
             return _OPS[type(n.op)](_eval(n.operand))
         raise ValueError(f"不允许的表达式：{expr}")
@@ -106,7 +116,8 @@ class ToolRegistry:
 # ======================================================================
 # 6.2 动作解析：从模型输出里提取 Action / Answer
 # ======================================================================
-_ACTION_RE = re.compile(r"Action\s*:\s*(\w+)\s*\(([^)]*)\)", re.I)
+# 审查 M5 修复：贪婪匹配到行尾，支持嵌套括号 calc((2+3)*4)（原只匹配到第一个 ')'）
+_ACTION_RE = re.compile(r"Action\s*:\s*(\w+)\s*\((.+)\)\s*$", re.I | re.S)
 _ANSWER_RE = re.compile(r"Answer\s*:\s*(.+)", re.I)
 
 

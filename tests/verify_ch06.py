@@ -37,8 +37,11 @@ def run(ckpt: str | None = None, proj: str | None = None):
     check("calc 拒绝属性访问", "错误" in tools.call("calc", "(1).__class__"))
     check("search 命中知识库", "梯度下降" in tools.call("search", "什么是梯度下降"))
     check("未知工具报错", "未知工具" in tools.call("nope", ""))
+    check("DoS 大整数幂被拒", "错误" in tools.call("calc", "9**9**9"))
+    check("结果超限被拒", "错误" in tools.call("calc", "10**30"))
+    check("嵌套括号解析", agent.parse_action("Action: calc((2+3)*4)") == ("calc", "(2+3)*4"))
 
-    r = subprocess.run([str(pathlib.Path(proj) / ".venv/Scripts/python.exe"),
+    r = subprocess.run([sys.executable,
                         str(pathlib.Path(proj) / "code/ch06/agent.py"), "--demo"],
                        capture_output=True, text=True, timeout=120)
     check("ReAct demo 完整", r.returncode == 0 and "✅ 最终答案" in r.stdout)

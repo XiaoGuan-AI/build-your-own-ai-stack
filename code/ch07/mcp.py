@@ -110,6 +110,8 @@ class McpServer:
     # ---- 安全护栏：路径白名单 ----
     def _file_read(self, path: str) -> str:
         p = (self.ALLOWED_ROOT / path).resolve()
+        if ":" in p.name:                                   # 审查 M2 修复：NTFS ADS 流绕过
+            raise PermissionError(f"拒绝 ADS 路径：{path}")
         if not p.is_relative_to(self.ALLOWED_ROOT):       # 越界检查（防 ../ 逃逸）
             raise PermissionError(f"路径越界：{path} 不在项目目录内")
         if not p.is_file():
@@ -124,6 +126,8 @@ class McpServer:
         method = request.get("method")
         rid = request.get("id")
         params = request.get("params", {})
+        if not isinstance(params, dict):        # 审查 M1 修复：params 非 dict 时容错
+            params = {}
 
         if method == "list_tools":
             return {"jsonrpc": "2.0", "id": rid, "result": self.list_tools()}

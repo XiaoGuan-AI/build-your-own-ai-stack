@@ -65,6 +65,11 @@ def run(ckpt: str | None = None, proj: str | None = None):
     torch.manual_seed(3)
     of = model.generate(ids, max_new_tokens=20, temperature=0.9, top_k=40, use_cache=False)
     check("KV Cache 一致性", torch.equal(oc, of))
+
+    # 审查 S3 回归：max_len>1024 前向不再崩溃（mask 与 max_len 绑定）
+    big = MiniTransformer(vocab_size=65, d_model=32, n_heads=4, n_layers=1, max_len=2048)
+    out_big = big(torch.randint(0, 65, (1, 1500)))
+    check("max_len=2048 前向可跑", out_big.shape == (1, 1500, 65), f"(got {out_big.shape})")
     return passed, failed
 
 

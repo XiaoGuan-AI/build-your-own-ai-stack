@@ -1,7 +1,7 @@
 # 第 3 章：预训练——把 Transformer 训成会说话的模型
 
 > 目标：亲手完成一次完整的语言模型训练。学完本章，你将有自己训练出的、能生成中文诗句的模型。
-> 代码：`code/ch03/train.py`（约 200 行）。**先跑为敬**（CPU 约 1~2 分钟）：
+> 代码：`code/ch03/train.py`（约 200 行）。**先跑为敬**（CPU 约 10 秒）：
 
 ```bash
 .venv/Scripts/python.exe code/ch03/train.py --demo
